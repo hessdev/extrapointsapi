@@ -14,6 +14,270 @@ class Teams_model extends CI_Model {
 		parent::__construct();
 	}
 
+	/*
+	function data($year = 2016, $week = 1, $owner_id = 0) {
+		$this->load->model('Lineup_model', 'lineup', TRUE);
+		$this->load->model('Scores_model', 'scores', TRUE);
+		$this->load->model('Career_model', 'career', TRUE);
+		$now = new DateTime($this->config->item('now'), $this->config->item('timezone'));
+		$num_starters = $this->config->item('num_starters');
+		$positions = $this->config->item('positions');
+		$team_data = array();
+		$schedules = array();
+		$points_by_year = array();
+		$team_points_by_year = array();
+		$teams = $this->get_by_year($year);
+		if (!empty($teams)) {
+			foreach($teams as $team) {
+				$team_id = $team['id'];
+				$team_data[$team_id] = array(
+					'teamId' => $team_id,
+					'name' => $team['teamname'],
+					'owner' => $team['firstname'].' '.$team['lastname'],
+					'shortName' => $team['shortname'],
+					'slug' => $team['slug'],
+					'division' => substr($team['scheduleid'], 1, -1),
+					'schedule' => $team['scheduleid'],
+					'record' => '0-0-0',
+					'recordVal' => 0,
+					'divRecordVal' => 0,
+					'totalPoints' => 0,
+					'totalPointsDivision' => 0,
+					'efficiency' => 0,
+					'possiblePoints' => 0,
+					'pointsAgainst' => 0,
+					'pointsAgainstDivision' => 0,
+					'h2hIndex' => 0,
+					'ptsIndex' => 0,
+					'players' => array(),
+					'weeks' => array(),
+					'history' => array(),
+					'pointsByPosition' => array(
+						'QB' => 0,
+						'RB' => 0,
+						'WR' => 0,
+						'PK' => 0,
+						'DF' => 0
+					)
+				);
+				$schedules[$team['scheduleid']] = $team_id;
+			}
+			$total_scores = $this->total_scores($year, $week);
+			if (!empty($total_scores)) {
+				foreach ($total_scores as $i => $team) {
+					$team_id = $team['id'];
+					$team_data[$team_id]['totalPoints'] = $team['ytdtotal'];
+				}
+			}
+			$records = $this->get_by_record($year, $week);
+			if (!empty($records)) {
+				foreach ($records as $team_id => $team) {
+					list($headtohead, $headtohead_div, $points, $name, $slug, $owner_id, $division, $wins, $losses, $ties, $divwins, $divlosses, $divties) = explode('^', $team);
+					$team_data[$team_id]['record'] = $wins.'-'.$losses.'-'.$ties;
+					$team_data[$team_id]['recordVal'] = $headtohead;
+					$team_data[$team_id]['divRecord'] = $divwins.'-'.$divlosses.'-'.$divties;
+					$team_data[$team_id]['divRecordVal'] = $headtohead_div;
+				}
+			}
+			foreach ($team_data as $team_id => $data) {
+				foreach($data['pointsByPosition'] as $pos => $points) {
+					$position_data = $this->position_rankings($year, $week, $pos);
+					if (!empty($position_data)) {
+						foreach ($position_data as $pdata) {
+							$team_data[$pdata['id']]['pointsByPosition'][$pos] = $pdata['pos_points'];
+						}
+					}
+				}
+				$players = $this->player_stats($year, $week, $team_id);
+				if (!empty($players)) {
+					$player_list = array();
+					foreach ($players as $player) {
+						$player_id = $player['playerid'];
+						$lineup_position = substr($player['position'], 1, 2);
+						$lineup_position_index = intval(substr($player['position'], 3));
+						if (!array_key_exists($player_id, $player_list)) {
+							$player_list[$player_id] = array(
+								'playerId' => $player_id,
+								'name' => $player['playername'],
+								'lineupPosition' => $lineup_position,
+								'position' => $player['playerpos'],
+								'img' => $player['img'],
+								'team' => $player['teamid'],
+								'possiblePoints' => 0,
+								'points' => $player['playerpts'],
+								'starterPoints' => 0,
+								'pointsRatio' => 0,
+								'pointsPerStart' => 0,
+								'starts' => 0,
+								'blanks' => 0,
+								'rank' => 0,
+							);
+						}
+						$is_starter = ($lineup_position_index <= $num_starters[array_search($lineup_position, $positions)]);
+						$player_list[$player_id]['possiblePoints'] += $player['totpts'];
+						if ($is_starter) {
+							$player_list[$player_id]['starterPoints'] += $player['totpts'];
+							$player_list[$player_id]['starts'] += 1;
+							if (empty($player['totpts'])) $player_list[$player_id]['blanks'] += 1;
+						}
+					}
+					$sorted_player_list = array();
+					foreach ($player_list as $player_id => $player) {
+						if (!empty($player['starts'])) {
+							$player['pointsPerStart'] = number_format($player['starterPoints'] / $player['starts'], 2, '.', '');
+						}
+						if (!empty($player['possiblePoints'])) {
+							$player['pointsRatio'] = number_format($player['starterPoints'] / $player['possiblePoints'] * 100, 2, '.', '');
+						}
+						if (empty($player['points'])) {
+							$player['points'] = 0;
+						}
+						$sorted_player_list[] = $player;
+					}
+					usort($sorted_player_list, "sort_players_by_points");
+					$team_data[$team_id]['players'] = array_reverse($sorted_player_list);
+					foreach ($team_data[$team_id]['players'] as $i => $player) {
+						$team_data[$team_id]['players'][$i]['rank'] = $i + 1;
+					}
+				}
+				$team_data[$team_id]['roster'] = $this->lineup->get($team_id, $year, $week);
+			}
+			for ($w = 1; $w <= $week; $w++) {
+				$scores = $this->scores->get($year, $w);
+				foreach ($scores as $team) {
+					$team_id = $team['id'];
+					$team_data[$team_id]['weeks'][$w] = array(
+						'week' => $w,
+						'points' => $team['points'],
+						'efficiency' => $team['efficiency'],
+						'possiblePoints' => $team['possible_points'],
+						'total' => $team['total_points'],
+						'divisionGame' => false,
+						'opponent' => array(
+							'name' => 'None',
+							'teamId' => 0,
+							'totalPoints' => 0,
+							'division' => ''
+						)
+					);
+					$team_data[$team_id]['possiblePoints'] += $team['possible_points'];
+				}
+			}
+			//log_message('debug', 'team_data: '.print_r($team_data, true));
+			foreach ($team_data as $team_id => $data) {
+				$efficiency = ($team_data[$team_id]['possiblePoints'] > 0) ? $team_data[$team_id]['totalPoints'] / $team_data[$team_id]['possiblePoints'] * 100 : 0;
+				$team_data[$team_id]['efficiency'] = number_format($efficiency, 2, '.', '');
+				$schedule = $this->get_team_schedule($year, $team_id);
+				if (!empty($schedule)) {
+					foreach ($schedule as $game) {
+						$game_week = $game['week'];
+						$opp_team_id = $game['oppteamid'];
+						//log_message('debug', 'team_data '.$team_id.' opp_team_id: '.$opp_team_id);
+						$team_data[$team_id]['weeks'][$game_week]['opponent']['name'] = $game['oppname'];
+						$team_data[$team_id]['weeks'][$game_week]['opponent']['shortName'] = $game['oppshortname'];
+						$team_data[$team_id]['weeks'][$game_week]['opponent']['teamId'] = $opp_team_id ;
+						$team_data[$team_id]['weeks'][$game_week]['opponent']['division'] = substr($game['oppscheduleid'], 1, -1);
+						if ($game_week <= $week) {
+							//log_message('debug', 'team_data(week'.$game_week.'): '.print_r($team_data[$opp_team_id]['weeks'][$game_week], true));
+							$team_data[$team_id]['weeks'][$game_week]['opponent']['points'] = $team_data[$opp_team_id]['weeks'][$game_week]['points'];
+							$team_data[$team_id]['pointsAgainst'] += $team_data[$opp_team_id]['weeks'][$game_week]['points'];
+							if ($team_data[$team_id]['division'] == $team_data[$team_id]['weeks'][$game_week]['opponent']['division']) {
+								$team_data[$team_id]['weeks'][$game_week]['divisionGame'] = true;
+								$team_data[$team_id]['pointsAgainstDivision'] += $team_data[$opp_team_id]['weeks'][$game_week]['points'];
+								$team_data[$team_id]['totalPointsDivision'] += $team_data[$team_id]['weeks'][$game_week]['points'];
+							}
+						} else {
+							$team_data[$team_id]['weeks'][$game_week]['week'] = $game_week;
+							if ($team_data[$team_id]['division'] == $team_data[$team_id]['weeks'][$game_week]['opponent']['division']) {
+								$team_data[$team_id]['weeks'][$game_week]['divisionGame'] = true;
+							} else {
+								$team_data[$team_id]['weeks'][$game_week]['divisionGame'] = false;
+							}
+						}
+					}
+				}
+				$history = $this->career->history($team_id);
+				//log_message('debug', 'history: '.print_r($history, true));
+				if (!empty($history)) {
+					foreach ($history as $row) {
+						$team_points_by_year[$team_id][$row['year']] = $row['points'];
+						$history_data = array(
+							'year' => $row['year'],
+							'points' => $row['points'],
+							'name' => $row['team'],
+							'games' => $row['games'],
+							'rank' => 1,
+							'record' => $row['wins'].'-'.$row['losses'].'-'.$row['ties'],
+							'divisionRecord' => $row['divwins'].'-'.$row['divlosses'].'-'.$row['divties'],
+							'highestScore' => $row['bestscore'],
+							'lowestScore' => $row['worstscore'],
+							'pointsChamp' => ($row['pointschamp'] == '1'),
+							'h2hChamp' => ($row['headtoheadchamp'] == '1'),
+							'playoffChamp' => ($row['pointschamp'] == '1'),
+							'lastPlace' => ($row['toiletchamp'] == '1')
+						);
+						$team_data[$team_id]['history'][] = $history_data;
+						if (!array_key_exists($row['year'], $points_by_year)) {
+							$points_by_year[$row['year']] = array();
+						}
+					}
+				}
+			}
+			$league_history = $this->career->history();
+			if (!empty($league_history)) {
+				foreach ($league_history as $row) {
+					$points_by_year[$row['year']][] = $row['points'];
+				}
+			}
+			foreach ($points_by_year as $year => $data) {
+				rsort($points_by_year[$year]);
+			}
+			//echo '<pre>'.print_r($points_by_year, true).'</pre>';
+			//echo '<pre>'.print_r($team_points_by_year, true).'</pre>';
+			$teams = array();
+			foreach ($team_data as $team_id => $data) {
+				$data['h2hIndex'] = str_pad($data['recordVal'], 2, '0', STR_PAD_LEFT)
+					.str_pad($data['divRecordVal'], 2, '0', STR_PAD_LEFT)
+					.str_pad($data['totalPoints'], 3, '0', STR_PAD_LEFT)
+					.str_pad($data['totalPointsDivision'], 3, '0', STR_PAD_LEFT);
+				$data['ptsIndex'] = str_pad($data['totalPoints'], 3, '0', STR_PAD_LEFT)
+					.str_pad($data['recordVal'], 2, '0', STR_PAD_LEFT)
+					.str_pad($data['divRecordVal'], 2, '0', STR_PAD_LEFT)
+					.str_pad($data['totalPointsDivision'], 3, '0', STR_PAD_LEFT);
+				$weeks = $data['weeks'];
+				$data['weeks'] = array();
+				foreach($weeks as $wk) {
+					$data['weeks'][] = $wk;
+				}
+				foreach ($data['history'] as $y => $past_year_data) {
+					$rank = 0;
+					$last_rank = 0;
+					$last_points = 99999;
+					$past_year = $past_year_data['year'];
+					//echo '<pre>'.print_r($points_by_year[$past_year], true).'</pre>';
+					//echo '<pre>'.$data['name'].': '.$past_year."\n";
+					foreach ($points_by_year[$past_year] as $x => $past_points) {
+						//echo '-- Last Points: '.$last_points."\n";
+						//echo '-- Past Points: '.$past_points."\n";
+						//echo '-- Team Points: '.$team_points_by_year[$team_id][$past_year]."\n";
+						$rank = ($last_points == $past_points) ? $last_rank : $x + 1;
+						//echo '-- Rank: '.$rank."\n";
+						if ($team_points_by_year[$team_id][$past_year] == $past_points) {
+							$data['history'][$y]['rank'] = $rank;
+							//echo '-- Team Rank: '.$rank."\n";
+							break;
+						}
+						$last_rank = $rank;
+						$last_points = $past_points;
+					}
+				}
+				$teams[] = $data;
+			}
+			return $teams;
+		}
+	}
+	*/
+
 	function data($year = 2016, $week = 1, $owner_id = 0) {
 		$this->load->model('Lineup_model', 'lineup', TRUE);
 		$this->load->model('Scores_model', 'scores', TRUE);
