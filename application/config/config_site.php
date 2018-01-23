@@ -85,7 +85,7 @@ $config['taxi_squad_start_week']			= 14;
 //$config['default_year']					= (date('n') <= 8) ? date('Y') - 1 : date('Y');
 $config['default_year']						= 2017;
 $config['draft_day']						= '2017-09-06 16:30:00';
-$config['draft_pick_year']					= 2016;
+$config['draft_pick_year']					= 2017;
 $config['now']								= date('Y-m-d H:i:s');
 //$config['now']								= '2015-10-04 16:23:55';
 $config['time_diff']						= 0;

@@ -14,7 +14,7 @@ class Teams_model extends CI_Model {
 		parent::__construct();
 	}
 
-	/*
+	/**/
 	function data($year = 2016, $week = 1, $owner_id = 0) {
 		$this->load->model('Lineup_model', 'lineup', TRUE);
 		$this->load->model('Scores_model', 'scores', TRUE);
@@ -276,8 +276,9 @@ class Teams_model extends CI_Model {
 			return $teams;
 		}
 	}
-	*/
+	/**/
 
+	/*
 	function data($year = 2016, $week = 1, $owner_id = 0) {
 		$this->load->model('Lineup_model', 'lineup', TRUE);
 		$this->load->model('Scores_model', 'scores', TRUE);
@@ -539,6 +540,7 @@ class Teams_model extends CI_Model {
 			return $teams;
 		}
 	}
+	*/
 
 	function get_by_record($year = 2015, $week = 14) {
 		$teams = array();

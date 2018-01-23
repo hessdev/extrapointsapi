@@ -18,6 +18,7 @@ class Api_controller extends CI_Controller {
 		$this->load->model('Scores_model', 'scores', TRUE);
 	}
 
+	/*
 	function info($year = 2017) {
 		$data = array();
 		$year = filter_var($year, FILTER_SANITIZE_NUMBER_INT);
@@ -54,6 +55,50 @@ class Api_controller extends CI_Controller {
 				'lastname' => $this->session->userdata('lastname'),
 				'url' => site_url('team/'.$user_slug.'/'.$year),
 				'is_admin' => $this->session->userdata('username') == $this->config->item('admin_username')
+			);
+		} else {
+			$data['user'] = null;
+		}
+		$this->render($data, 200);
+	}
+	*/
+
+	function info($year = 2017) {
+		$data = array();
+		$year = filter_var($year, FILTER_SANITIZE_NUMBER_INT);
+		if (!in_array($year, $this->config->item('data_years'))) {
+			$year = max($this->config->item('data_years'));
+		}
+		$now = new DateTime($this->config->item('now'), $this->config->item('timezone'));
+		$data['title'] = $this->config->item('site_name');
+		$data['rosterWeek'] = $this->lineup->roster_week($year);
+		$scores_week = ($year == $this->config->item('default_year')) ? $this->scores->week($this->config->item('default_year'), $data['rosterWeek']) : $this->scores->week($year, $data['rosterWeek']);
+		$data['scoresWeek'] = $scores_week;
+		$data['lineupWeek'] = $this->lineup->week($year);
+		$data['year'] = $year;
+		$data['years'] = $this->config->item('data_years');
+		$data['draftYear'] = $this->config->item('draft_pick_year');
+		$data['draftYears'] = $this->config->item('draft_years');
+		$data['careerYears'] = $this->config->item('career_years');
+		$schedule_year = ($year != $this->config->item('draft_pick_year')) ? $year : $this->config->item('draft_pick_year');
+		if ($year == $this->config->item('default_year') && $this->config->item('default_year') !=  $this->config->item('draft_pick_year')) {
+			$schedule_year = $this->config->item('draft_pick_year');
+		}
+		$data['scheduleYear'] = $schedule_year;
+		$data['now'] = $now->format(DATE_ATOM);
+		$logged_in = $this->userauth->logged_in();
+		$data['loggedIn'] = $logged_in;
+		if ($logged_in) {
+			$user_slug = $this->session->userdata('slug');
+			$data['user'] = array(
+				'userId' => $this->session->userdata('id'),
+				'slug' => $user_slug,
+				'userName' => $this->session->userdata('username'),
+				'division' => $this->session->userdata('division'),
+				'firstName' => $this->session->userdata('firstname'),
+				'lastName' => $this->session->userdata('lastname'),
+				'url' => site_url('team/'.$user_slug.'/'.$year),
+				'isAdmin' => $this->session->userdata('username') == $this->config->item('admin_username')
 			);
 		} else {
 			$data['user'] = null;
@@ -484,11 +529,12 @@ class Api_controller extends CI_Controller {
 			$team_results = $this->teams->data($year, $week);
 		}
 		if (!empty($team_results)) {
-			$data['title'] = 'Week '.$week.' Teams › '.$year;
-			$data['teams'] = $team_results;
+			//$data['title'] = 'Week '.$week.' Teams › '.$year;
+			//$data['teams'] = $team_results;
+			$data = $team_results;
 		} else {
-			$data['title'] = 'Teams Unavailable';
-			$data['teams'] = array();
+			//$data['title'] = 'Teams Unavailable';
+			//$data['teams'] = array();
 			$response_code = 404;
 		}
 		$this->render($data, $response_code);
@@ -590,6 +636,8 @@ class Api_controller extends CI_Controller {
 	function render($data, $response_code = 200) {
 		if (isset($_SERVER['HTTP_ORIGIN'])) {
 			if ($_SERVER['HTTP_ORIGIN'] == 'http://extpts.hess.com') {
+				$http_origin = $_SERVER['HTTP_ORIGIN'];
+			} elseif ($_SERVER['HTTP_ORIGIN'] == 'http://localhost:4200') {
 				$http_origin = $_SERVER['HTTP_ORIGIN'];
 			} else {
 				$http_origin = 'https://www.extrapoints.net';

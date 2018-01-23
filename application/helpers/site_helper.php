@@ -47,10 +47,16 @@ function lineup_pos_from_player_pos($position = 'QB') {
 		case 'DL':
 		case 'DT':
 		case 'LB':
+		case 'NT':
+		case 'ILB':
+		case 'OLB':
 		case 'S':
+		case 'FS':
+		case 'SS':
 			$pos = 'DF';
 			break;
 		case 'FB':
+		case 'HB':
 			$pos = 'RB';
 			break;
 		default:
@@ -101,8 +107,8 @@ function date3339($timestamp = 0) {
 }
 
 function sort_players_by_points($player1, $player2) {
-	$player1_cmp = str_pad($player1['starter_points'], 3, '0', STR_PAD_LEFT).str_pad($player1['starts'], 2, '0', STR_PAD_LEFT);
-	$player2_cmp = str_pad($player2['starter_points'], 3, '0', STR_PAD_LEFT).str_pad($player2['starts'], 2, '0', STR_PAD_LEFT);
+	$player1_cmp = str_pad($player1['starterPoints'], 3, '0', STR_PAD_LEFT).str_pad($player1['starts'], 2, '0', STR_PAD_LEFT);
+	$player2_cmp = str_pad($player2['starterPoints'], 3, '0', STR_PAD_LEFT).str_pad($player2['starts'], 2, '0', STR_PAD_LEFT);
 	return strcmp($player1_cmp, $player2_cmp);
 }
 
